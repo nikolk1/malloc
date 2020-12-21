@@ -1,20 +1,7 @@
-#include <assert.h>
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include "malloc.h"
 
-#define META_SIZE sizeof(struct block_meta)
-
-typedef struct block_meta block_meta;
+const int META_SIZE = sizeof(block_meta);
 void *global_base = NULL;
-
-struct block_meta
-{
-    size_t size;
-    struct block_meta *next;
-    int free;
-    int magic; // For debugging only. TODO: remove
-};
 
 block_meta *get_block_ptr(void *ptr)
 {
@@ -59,6 +46,12 @@ void split_block(size_t req_size, block_meta *block)
     block_meta *leftovers;
     size_t left_size = block->size - (req_size + META_SIZE);
 
+    if (left_size <= 0)
+    {
+        printf("Left size is below 0, something is wrong with the code");
+        exit(1);
+    }
+
     block_meta *next_block = block->next;
 
     block->free = 0;
@@ -66,14 +59,12 @@ void split_block(size_t req_size, block_meta *block)
     block->size = req_size + META_SIZE;
     block->next = get_block_ptr(block + block->size + 1); // problem here!!!
 
-    /*
     leftovers = block->next;
 
     leftovers->free = 1;
     leftovers->magic = 0x55555555;
     leftovers->size = left_size;
     leftovers->next = next_block;
-    */
 }
 
 void *malloc(size_t size)
