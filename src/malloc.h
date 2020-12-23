@@ -2,6 +2,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <math.h>
 
 struct block_meta
 {
@@ -20,3 +21,5 @@ void *malloc(size_t size);
 void free(void *ptr);
 void *realloc(void *ptr, size_t size);
 void *calloc(size_t nelem, size_t elsize);
+unsigned int align_block_size(size_t block_size);
+void merge_consecutive_blocks();

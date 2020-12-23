@@ -1,5 +1,7 @@
 #include "malloc.h"
 
+#define ALIGN 8
+
 const int META_SIZE = sizeof(block_meta);
 void *global_base = NULL;
 
@@ -65,19 +67,23 @@ void split_block(size_t req_size, block_meta *block)
     leftovers->magic = 0x55555555;
     leftovers->size = left_size;
     leftovers->next = next_block;
+
+    merge_consecutive_blocks();
 }
 
 void *malloc(size_t size)
 {
     block_meta *block;
-    if (size <= 0)
+    unsigned int aligned_size = align_block_size(size + META_SIZE);
+
+    if (aligned_size <= 0)
     {
         return NULL;
     }
 
     if (!global_base)
     { // First call.
-        block = request_space(NULL, size);
+        block = request_space(NULL, aligned_size);
         if (!block)
         {
             return NULL;
@@ -87,10 +93,10 @@ void *malloc(size_t size)
     else
     {
         block_meta *last = global_base;
-        block = find_free_block(&last, size);
+        block = find_free_block(&last, aligned_size);
         if (!block)
         { // Failed to find free block.
-            block = request_space(last, size);
+            block = request_space(last, aligned_size);
             if (!block)
             {
                 return NULL;
@@ -98,7 +104,7 @@ void *malloc(size_t size)
         }
         else
         { // Found free block
-            split_block(size, block);
+            split_block(aligned_size, block);
             block->free = 0;
             block->magic = 0x77777777;
         }
@@ -156,4 +162,30 @@ void *calloc(size_t nelem, size_t elsize)
     void *ptr = malloc(size);
     memset(ptr, 0, size);
     return ptr;
+}
+
+unsigned int align_block_size(size_t block_size)
+{
+    return ((((block_size + META_SIZE) / ALIGN) + 1) * ALIGN) - META_SIZE;
+}
+
+void merge_consecutive_blocks()
+{
+    block_meta *current = global_base;
+    block_meta *next = current->next;
+    while (next)
+    {
+        if (current->free == 1 && next->free == 1)
+        {
+            current->size += next->size + META_SIZE;
+            current->next = next->next;
+
+            next = next->next;
+        }
+        else
+        {
+            current = next;
+            next = next->next;
+        }
+    }
 }
